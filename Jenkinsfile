@@ -1,59 +1,73 @@
 pipeline {
     agent {
-        // Use Node.js 16 Docker image as the build agent
         docker {
             image 'node:16'
-            args '-v $HOME/.npm:/root/.npm' // Mount the npm cache to speed up builds
+            args '-v $HOME/.npm:/root/.npm'
         }
     }
 
     stages {
         stage('Checkout') {
             steps {
-                // Checkout the code from the repository
                 checkout scm
             }
         }
 
         stage('Install Dependencies') {
             steps {
-                // Install project dependencies
+                echo 'Installing npm dependencies...'
                 sh 'npm install --save'
+            }
+        }
+
+        stage('Install Snyk') {
+            steps {
+                echo 'Installing Snyk CLI...'
+                sh 'npm install -g snyk'
+            }
+        }
+
+        stage('Authenticate Snyk') {
+            steps {
+                withCredentials([string(credentialsId: 'snyk-api-token', variable: 'SNYK_TOKEN')]) {
+                    sh 'snyk auth $SNYK_TOKEN'
+                }
+            }
+        }
+
+        stage('Security Scan with Snyk') {
+            steps {
+                echo 'Running Snyk security scan...'
+                // Halt the pipeline if critical vulnerabilities are found
+                sh 'snyk test --severity-threshold=critical'
             }
         }
 
         stage('Build') {
             steps {
-                // If there is a build script in package.json, you can run it here
-                // Uncomment the line below if applicable
-                // sh 'npm run build'
-                echo 'Build step (if needed) would be executed here.'
+                echo 'Building the project...'
+                // Add your build steps here
             }
         }
 
         stage('Test') {
             steps {
-                // Run tests (if applicable)
-                // Uncomment the line below if you have tests set up
-                // sh 'npm test'
-                echo 'Test step (if needed) would be executed here.'
+                echo 'Running tests...'
+                // Add your test steps here
             }
         }
 
         stage('Deploy') {
             steps {
-                // Deploy to AWS Elastic Beanstalk or other deployment steps
-                echo 'Deployment step would be executed here.'
+                echo 'Deploying the project...'
+                // Add your deployment steps here
             }
         }
     }
 
     post {
         always {
-            // Archive the build artifacts (if any)
-            archiveArtifacts artifacts: '**/build/**', allowEmptyArchive: true
-            
-            // Clean up workspace after the build is finished
+            echo 'Pipeline completed.'
             cleanWs()
         }
     }
